@@ -1,0 +1,342 @@
+---
+title: "Flex Dashboard"
+author: "Audrey Hyke"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include = FALSE, echo = FALSE}
+library(tidyverse)
+library(lubridate)
+library(gt)
+library(paletteer)
+library(plotly)
+library(flexdashboard)
+
+#Working directory for .RMD
+knitr::opts_knit$set(echo = TRUE,
+                     root.dir = rprojroot::find_rstudio_root_file())
+
+#Controlling figure output in markdown
+knitr::opts_chunk$set(
+#  fig.height =   
+  fig.width = 6,
+#  fig.asp = .5,
+  out.width = "90%",
+#  out.height = 
+ fig.align  = "center",
+  cache = FALSE,
+  eval  = TRUE,
+  echo  = TRUE,
+  warning = FALSE
+)
+
+#My Colours (from viridis)
+my_purple <- "#440154FF"
+my_yellow <- "#FDE725FF"
+
+#Set Theme for ggplot2
+theme_set(theme_bw() + theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom"))
+
+#Set Scientific notation output and decimal places for knitr
+options(scipen = 999)
+options(digits = 4)
+options(dplyr.summarise.inform = FALSE)
+```
+
+
+```{r data_read, include = FALSE}
+
+disney.df <- read_csv("./data/disneyland_reviews.csv",
+                      na = c("missing"),
+                      show_col_types = FALSE) %>%
+             janitor::clean_names() %>%
+             rename(
+               id       = review_id,
+               text     = review_text, #trimming unnecessary review_
+               location = reviewer_location
+             ) %>% 
+             mutate( #Time
+               id    = as.factor(id),
+               date  = lubridate::ym(year_month), #Cleaning up time as date, y/m factors
+               year  = lubridate::year(date) %>% #See the lubridate package
+                       as.factor(),
+               month = month.name[lubridate::month(date)] %>%
+                       as.factor()
+             ) %>%
+             mutate( #Text analysis
+               n_words    = str_split(text, " ") %>% #proxy for number of words
+                            map_dbl(length),
+               avg_length = str_split(text, " ") %>% #proxy for average length
+                            map(str_length) %>% 
+                            map_dbl(mean),
+               n_unique   = str_split(text, " ") %>% #proxy for no. unique words
+                            map(unique) %>%
+                            map_dbl(length),
+               branch     = str_split(branch, "_") %>% #extracting branch w stringr
+                            map_chr(2) %>%
+                            as.factor() %>%
+                            fct_recode("Hong Kong" = "HongKong") %>%
+                            fct_relevel("California", "Paris")
+             ) %>%
+             dplyr::select(id, rating, location, branch, everything(), -c(year_month, text))
+
+
+
+penguin.df <- read_rds("./data/penguin.RDS") %>%
+              mutate(
+                year = as.factor(year),
+                sex  = str_to_title(sex) %>%
+                       ifelse(is.na(.), "Unknown", .)
+              )
+
+tidy_penguin.df <- penguin.df %>%
+                   pivot_longer(
+                     contains(c("mm", "g")),
+                     names_to  = "type",
+                     values_to = "measurement"
+                   )
+      
+```
+
+
+```{r, include = FALSE}
+
+#straight from given code 
+rate_time.df <- disney.df %>%
+  group_by(branch, date) %>%
+  summarise(
+    avg_rating = mean(rating)
+  ) %>%
+  drop_na() %>%
+  ungroup() %>%
+  mutate(branch = fct_reorder(branch, avg_rating, .desc = TRUE)) 
+
+
+rate_time.gg <- rate_time.df %>%
+  ggplot(aes(x = ymd(date), y = avg_rating, colour = branch, fill = branch)) +
+  stat_smooth(alpha   = 0.2, 
+              size    = 1.2, 
+              method  = "loess",
+              formula = "y ~ x",
+              span    = 0.2,
+              se      = FALSE) +
+  geom_point(alpha    = 0.24, 
+             position = "jitter",
+             size     = 2, 
+             shape    = 16) +
+  labs(
+    x = "Year",
+    y = "Average Rating",
+    title = "Average Rating by Branch from 2010-2019"
+  ) + 
+  annotate(geom = "text",
+           x = ymd("2013-07-1"), 
+           y = 4.66,
+           label  = "Mean Trend",
+           #family = "AvantGarde",
+           colour = my_purple) +
+  scale_colour_viridis_d("Disneyland Branch") +
+  scale_fill_viridis_d("Disneyland Branch") +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_minor_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  theme(axis.text.x = element_text(angle = 45,
+                                   vjust = 1.24,
+                                   hjust = 1.2,
+                                   size  = 11),
+        axis.text.y = element_text(size  = 11)) +
+  ylim(c(3, 5))
+
+plotA <- ggplotly(rate_time.gg )
+  
+```
+
+
+```{r, include = FALSE}
+
+#straight from given code except making it a plotly plot
+rate_text.gg <- disney.df %>%
+  pivot_longer(
+    cols      = contains(c("n_", "avg")),
+    names_to  = "text_var",
+    values_to = "measurement"
+  ) %>%
+  mutate(
+    text_var = case_when(
+                text_var %in% "n_words"  ~ "Word Count",
+                text_var %in% "n_unique" ~ "Unique Word Count",
+                TRUE                     ~ "Avg. Word Length"
+                ) %>%
+                as_factor()
+  ) %>%
+  ggplot(aes(x = measurement, y = rating, colour = text_var)) +
+#  stat_smooth(alpha   = 0.2, 
+#              size    = 1.2, 
+#              method  = "loess",
+#              span    = 1,
+#              se      = FALSE) +
+  geom_point(alpha    = 0.16, 
+             position = position_jitter(w = 2, h = 0.36),
+             size     = 2, 
+             shape     = 16) +
+  labs(
+    x = "Observed Measurement",
+    y = "Rating",
+    title = "Text-derived Associations with Rating"
+  ) +
+  scale_colour_viridis_d("Text-derived Variable") +
+  facet_wrap(~ text_var, scales = "free_x")
+
+plotB <- ggplotly(rate_text.gg, tooltip = "text")
+```
+
+
+```{r, include = FALSE}
+
+#straight from given code
+
+trends.df <- tidy_penguin.df %>%
+  filter(sex %in% c("Male", "Female")) %>%
+  group_by(sex, type, species, year) %>%
+  summarise(
+    mean   = mean(measurement, na.rm = TRUE),
+    sd     = sd(measurement, na.rm = TRUE)
+  ) %>%
+  mutate(
+    year = year %>%
+           as.character() %>%
+           as.numeric()
+  )
+
+
+
+#so many annotations for the titles of each graph
+
+annotations = list( 
+  list( 
+    x = 0.25,  
+    y = 1.0,  
+    text = "Bill Depth F",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  ),  
+  list( 
+    x = 0.75,  
+    y = 1,  
+    text = "Bill Depth M",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  ),  
+  list( 
+    x = 0.25,  
+    y = 0.725,  
+    text = "Body Mass F",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  ),
+  list( 
+    x = 0.75,  
+    y = 0.725,  
+    text = "Body Mass M",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  ),  
+  list( 
+    x = 0.25,  
+    y = 0.475,  
+    text = "Flipper Length F",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  ),  
+  list( 
+    x = 0.75,  
+    y = 0.475,  
+    text = "Flipper Length M",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  ),  
+  list( 
+    x = 0.25,  
+    y = 0.225,  
+    text = "Bill Length F",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  ),  
+  list( 
+    x = 0.75,  
+    y = 0.225,  
+    text = "Bill Length M",  
+    xref = "paper",  
+    yref = "paper",  
+    xanchor = "center",  
+    yanchor = "bottom",  
+    showarrow = FALSE 
+  ))
+
+#i grouped by type and sex all in one so I can't choose to not show the legend for 7 plots. struggling.
+#having them shareY is a choice I made - I think it explains more info about the M vs F
+
+plotC <- trends.df %>%
+  group_by(type,sex) %>%
+  do(p = plot_ly(., x = ~year, y = ~mean, color = ~species, type = "scatter", mode = "lines", legendgroup = ~species)) %>%
+  subplot(nrows = 4, shareX = TRUE, shareY = TRUE) %>%
+  layout(annotations = annotations) %>%
+  layout(title = "Penguin Measurements by Sex")
+  
+
+```
+
+Page 1 {style="position:relative"}
+========================================================
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Disney Ratings by Branch
+
+```{r, fig.height=4, fig.width=5}
+plotA
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Disney Ratings by Text
+
+```{r, fig.height=4, fig.width=5}
+plotB
+```
+
+Page 2 {style="position:relative;"}
+========================================================
+### Penguin Data
+
+```{r, fig.height=3, fig.width=5, fig.asp=.7}
+plotC
+```

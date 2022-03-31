@@ -1,0 +1,35 @@
+---
+title: "Audrey Hyke (she/her)"
+---
+
+<div style= "float : left; position : relative; top: 0px; width : 400px; height : 400px; padding-right: 24px; margin-bottom : 0px">
+![me in Switzerland September 2021!](./figures/website_me.jpg)
+
+</div>
+
+<font size = "4"> 
+Hi! I am a current Masters student at the University of Minnesota. I love the U - I just got a BS in Statistics from here in Spring 2021. I also minored in GIS and Math. My masters will be from the Department of Forestry, in Natural Resources Science and Management. I am in the Remote Sensing and Geospatial Analysis track. I'm trying to find my special place in the research world that utilizes a high understanding of statistics to help the environment! I'm about all things spatial. Spatial statistics (what I'm currently researching about), spatial math (topology was my first love - I have a glass klein bottle), spatial design in the real world (let me critique your interior design choices) and the virtual world (especially data visualization). 
+</font>  
+  
+  
+  
+<font size = "4">
+You can catch me on the St Paul campus most days here at the U. Come chat with me about ecological statistics! 
+</font>
+
+<font size = "4">
+Some of my interests outside of math and models include the obvious, going outdoors: hiking, climbing, foraging, and camping. I also love animals of all kinds, especially plovers and saw-whet owls. I have three black cats, two dogs, and an aquarium full of fish and shrimp. I'm also getting into photography, specifically black and white ICM photos, and black and white film. And most importantly, if you like to hang out on Monday nights watching The Bachelor, I'm your girl! 
+</font>
+
+> *"Cancel nature !" - Grimes*
+
+> *"If he had lived we would have known something" - Isaac Newton on the death of Roger Cotes*
+
+<font size = "3">
+From Alan Watts - "Overcome Social Anxiety":
+</font>
+
+> *All that you see out in front of you is how you feel inside your head*
+
+> *...So then, when there is no body left to resist the thing that we call change, which is simply another word for 'life' and when we dispel the illusion that we think our thoughts, instead of being just a stream of thoughts, and that we feel our feelings, instead of being just feelings--it's like saying, you know, 'To feel the feelings' is a redundant expression. It's like saying 'Actually, I hear sounds,' for there ARE no sounds which are not heard. Hearing is sound. Seeing is sight. You don't see sights. Sight-seeing is a ridiculous word! You could say just either 'sighting', or 'seeing', one or the other, but SIGHT-seeing is nonsense!*
+
