@@ -212,9 +212,7 @@ Page 1 {style="position:relative"}
 Column {data-width=500}
 -----------------------------------------------------------------------
 
-### Yikes! Don't Go Here - It's Ugly!
-
-## Map of Landfils, Quarries, and Brownfields in Minnesota
+### Yikes! Don't Go Here - It's Ugly! Map of Landfils, Quarries, and Brownfields in Minnesota
 
 ```{r, fig.height=4, fig.width=5}
 ugly_leaf
@@ -222,9 +220,7 @@ ugly_leaf
 
 Column {data-width=500}
 -----------------------------------------------------------------------
-### Go Here Instead!
-
-## Forest stands with Balm of Gilead as their main cover type
+### Go Here Instead! Forest stands with Balm of Gilead as their main cover type
 
 
 ```{r, fig.height=4, fig.width=5}
