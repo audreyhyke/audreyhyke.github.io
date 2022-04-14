@@ -1,0 +1,242 @@
+---
+title: "Flex Dashboard"
+author: "Audrey Hyke"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include = FALSE, echo = FALSE}
+library(tidyverse)
+library(viridis)
+library(gt)
+library(paletteer)
+library(plotly)
+library(flexdashboard)
+library(ggmap)
+library(sf)
+library(osmdata)
+library(leaflet)
+library(htmltools)
+library(tidycensus)
+library(ggthemes)
+
+#Working directory for .RMD
+knitr::opts_knit$set(echo = TRUE,
+                     root.dir = rprojroot::find_rstudio_root_file())
+
+#Controlling figure output in markdown
+knitr::opts_chunk$set(
+#  fig.height =   
+  fig.width = 6,
+#  fig.asp = .5,
+  out.width = "90%",
+#  out.height = 
+ fig.align  = "center",
+  cache = FALSE,
+  eval  = TRUE,
+  echo  = TRUE,
+  warning = FALSE
+)
+
+#My Colours (from viridis)
+my_purple <- "#440154FF"
+my_yellow <- "#FDE725FF"
+
+#Set Theme for ggplot2
+theme_set(theme_bw() + theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom"))
+
+#Set Scientific notation output and decimal places for knitr
+options(scipen = 999)
+options(digits = 4)
+options(dplyr.summarise.inform = FALSE)
+```
+
+
+
+```{r leaflet, include = FALSE}
+
+bb <- getbb ('minnesota', format_out = 'polygon')
+
+osm_ugly_sf.df <- opq(bbox = "minnesota") %>%
+             add_osm_feature(key = "landuse", value = c("landfill", "brownfield", "quarry")) %>%
+  osmdata_sf() 
+
+osm_ugly_sf.df <- osm_ugly_sf.df%>% 
+  trim_osmdata(bb)
+
+#relevant sf dataframe
+
+osm_ugly.df <- osm_ugly_sf.df$osm_polygons %>% 
+  janitor::clean_names() %>%
+  filter(!is.na(landuse))%>% #only retain 'valid' tags
+  dplyr::select(osm_id, landuse, name, disused, note, access, geometry) %>%
+  mutate(landuse = str_to_title(landuse) %>% as_factor())
+
+# extract
+
+land_types <- levels(osm_ugly.df$landuse)
+n_types    <- length(land_types)
+
+# labels
+
+ugly_label.df <- osm_ugly.df %>%
+  mutate(
+    text_label = str_c(
+                   name,
+                   "<br/>Disused: ",
+                   disused,
+                   "<br/>Access:  ",
+                   access,
+                   "<br/>Note: ",
+                   note
+                 )
+  )
+
+#Initialize our colour pallete (discrete in this case)
+my_pallete <- colorFactor(viridis_pal(option = "D")(n_types), domain = land_types)
+
+#Call our leaflet
+ugly_leaf <- leaflet(data = ugly_label.df) %>%
+  addProviderTiles('CartoDB.Positron') %>%
+  addPolygons(color = ~my_pallete(land_types),
+              weight = 1, 
+              smoothFactor = 0.5,
+              opacity = 1.0, 
+              fillOpacity = ifelse(osm_ugly.df$disused == NA, 0.2, 0.7),
+              label = ~map(text_label, HTML)) %>% 
+  addLegend(
+    title    = "Landuse",
+    position = "bottomright",
+    colors   = viridis_pal(option = "D")(n_types),
+    labels   = land_types 
+  )
+  
+```
+
+
+```{r tidycensus, include = FALSE}
+
+
+# base map
+
+hennepin.box     <- osmdata::getbb("hennepin")
+hennepin.outline <- osmdata::getbb("hennepin", format_out = "polygon")[[1]] %>%
+  as_tibble() %>%
+  rename(longitude = V1, latitude = V2)
+
+mn_base.map <- get_map(
+                location = hennepin.box,
+                source   = "google",
+                maptype  = "roadmap",
+                crop = TRUE
+               )
+
+## ggmap basemap
+
+hennepin_base.gg <- ggmap(mn_base.map) +
+  geom_polygon(data = hennepin.outline, aes(x = longitude, y = latitude), colour = "white", size = 1.2, alpha = 0.1) +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16,
+                                hjust = 0.5),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+
+
+# getting median structure ages
+
+structure_age.df <- get_acs(
+  geography = "tract",
+  variables = "B25031_003",
+  state     = "MN",
+  county    = "Hennepin",
+  year      = 2020,
+  geometry  = TRUE)
+
+age_plotly.df <- structure_age.df %>%
+  mutate(tract = str_split(NAME, ",") %>%
+                 map_chr(1) %>%
+                 str_remove("Census Tract "),
+    text_label = str_c("Tract: ", tract,
+                  "\nMedian Rent: ", scales::dollar(estimate)))
+
+# making plot
+
+
+mn_rent.ggmap <- hennepin_base.gg +  
+  geom_sf(data = age_plotly.df, 
+          aes(fill = estimate, text = text_label),
+          colour = "black", size = 0.1,
+          inherit.aes = FALSE) + 
+  labs(title = "Hennepin County, MN 2020 ACS Median Rent for One Bedroom") + 
+  scale_fill_viridis_c("Median Rent") +
+  theme_map() +
+  theme(
+    plot.title   = element_text(size  = 16,
+                                hjust = 0.5),
+    legend.text  = element_text(size = 16),
+    legend.title = element_text(size = 16),
+    legend.position = "right"
+  )
+
+```
+
+
+```{r, include = FALSE}
+
+forest.df <- st_read("./data/dnr_forest_stand_inventory.shp", quiet = TRUE) %>%
+  janitor::clean_names() %>%
+  filter(mn_ctype == 14) %>%
+  st_transform(4326) # was originally in XY coords
+
+
+  
+
+forest_leaf <- leaflet(data = forest.df) %>%
+  addProviderTiles('CartoDB.Positron') %>%
+  addPolygons(color = "darkgreen",
+              weight = 1, 
+              smoothFactor = 0.5,
+              opacity = 1.0)
+
+
+```
+
+Page 1 {style="position:relative"}
+========================================================
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Yikes! Don't Go Here - It's Ugly!
+
+## Map of Landfils, Quarries, and Brownfields in Minnesota
+
+```{r, fig.height=4, fig.width=5}
+ugly_leaf
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+### Go Here Instead!
+
+## Forest stands with Balm of Gilead as their main cover type
+
+
+```{r, fig.height=4, fig.width=5}
+forest_leaf
+```
+
+Page 2 {style="position:relative;"}
+========================================================
+
+
+### ggplotly of Hennepin 
+
+```{r, fig.height=3, fig.width=5, fig.asp=.7}
+mn_rent.ggmap
+```

@@ -26,6 +26,8 @@ navbar:
       menu:
       - text: Flexdashboard
         href: flexdashboard.html
+      - text: Spatial Dashboard
+        href: spatial.html
 output:  
    html_document:
     theme: readable
